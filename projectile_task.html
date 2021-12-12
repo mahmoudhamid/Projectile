@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #333;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 25px;
+        }
+
+        canvas {
+            background-color: #fff;
+            margin: 10px;
+        }
+
+        .info {
+            display: flex;
+            width: max-content;
+            margin: 30px auto 10px auto;
+            color: white;
+        }
+
+        .box {
+            margin: 0px 20px;
+        }
+
+        .box>input {
+            width: 70px;
+            font-size: 20px;
+            margin-left: 10px;
+            padding: 5px;
+            text-align: center;
+        }
+
+        /*  removing arrows from inputs type number  */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .box>button {
+            font-size: 20px;
+            margin-left: 10px;
+            padding: 7px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .footer {
+            font-size: 14px;
+            color: white;
+            text-align: center;
+            margin-top: -10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="info">
+        <div class="box">
+            <span>Initial velocity</span>
+            <input type="number" name="velocity" id="velocity">
+            <small>m/s</small>
+        </div>
+        <div class="box">
+            <span>Angle</span>
+            <input type="number" name="angle" id="theta">
+            <small>Deg</small>
+        </div>
+        <div class="box">
+            <button id="launch">Launch</button>
+            <button id="reset">Reset</button>
+        </div>
+    </div>
+    <canvas id="sandbox"></canvas>
+    <div class="footer">1 px = 1 meter ==> to avoid small scale or over scale please input the value of velocity between
+        30 and 110</div>
+
+
+    <script>
+        const canvas = document.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth - 20;
+        canvas.height = 500;
+
+        // Inputs
+        const velocity = document.getElementById('velocity');
+        const theta = document.getElementById('theta');
+        // Buttons
+        const launch = document.getElementById('launch');
+        const reset = document.getElementById('reset');
+
+        reset.disabled = true;
+        // Define Parameters
+        const pi = Math.PI;
+        const g = 9.8;  // Gravitational acceleration
+        let vo;  // initial velocity
+        let angle;  // projection angle in rad
+        let t;  // time of the trip
+        let vx; // velocity along axis X
+        let vy; // velocity along axis y
+        let x;  // distance along axis X
+        let y = 0;  // distance along axis y
+        let h;  // Maximum height of projectile
+
+
+        //  Events
+        velocity.addEventListener("keyup", (e) => {
+            vo = Number(e.target.value);
+        });
+        theta.addEventListener("keyup", (e) => {
+            angle = pi * Number(e.target.value) / 180;
+        });
+        launch.addEventListener('click', draw);
+        reset.addEventListener('click', clear);
+
+        let render = undefined;
+        let requested;
+
+        // drawing X and Y axes
+        drawLine(1, "blue", false, [20, 500], [20, 0]);
+        drawLine(1, "blue", false, [0, 480], [canvas.width, 480]);
+        // Drawing a projectile 
+        projectile("red", 20, 480, 10);
+
+
+        /////////////////////////////    functions      \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
+
+        function draw() {
+            if (velocity.value !== '' && theta.value !== '') {
+                launch.disabled = true;     // disable launch button
+                reset.disabled = false;     // activate reset button     
+                requested = true;
+
+                // Obtaining parameters
+                t = 2 * (vo * Math.sin(angle) / g);  // time of the trip
+                x = vo * Math.cos(angle) * t;        // distance along axis X
+                h = Math.pow(vo * Math.sin(angle), 2) / (2 * g);  // Maximum height of projectile
+                let distance = x;
+                x = 0;
+                //  rendering
+                window.requestAnimationFrame(function loop() {
+                    // clear the canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    drawCurvePath(2, "#999", [20, 10, 5, 10], [20, 480], [distance + 20, 480], [20 + distance / 2, (480 - 2 * h)]);
+
+                    x += (vo / 15) * (0.025 * distance) / t;   // incrementing x by small sample
+                    y = getY(x);    // Obtaining y for every x
+
+                    // Drawing a projectile 
+                    projectile("red", x + 20, y, 10);
+
+                    // Replay animation
+                    if (x > canvas.width - 1 || y > canvas.height - 1) {
+                        x = 0;
+                        y = 0;
+                    }
+
+                    // X and Y axes
+                    drawLine(1, "blue", false, [0, 480], [canvas.width, 480]);
+                    drawLine(1, "blue", false, [20, 500], [20, 0]);
+
+                    // maximum height
+                    if (x < distance / 2) drawLine(3, "red", false, [2, 480], [2, y]);
+                    else drawLine(3, "red", false, [2, 480], [2, getY(distance / 2)]);
+
+                    // maximum distance
+                    drawLine(3, "green", false, [20, 498], [x, 498]);
+
+                    // Right information
+                    drawRect("green", canvas.width - 360, 10, 15, 15);
+                    drawRect("red", canvas.width - 360, 35, 15, 15)
+                    drawText(20, "black", `Maximum distance = ${Math.abs(distance).toFixed(2)} m`, canvas.width - 330, 25);
+                    drawText(20, "black", `Maximum height = ${h.toFixed(2)} m`, canvas.width - 330, 50);
+
+                    // Re-rendering 
+                    if (requested) start(loop);
+                });
+            }
+        }
+
+        // get value y for given value x
+        function getY(x) {
+            return 480 - (x * Math.tan(angle) - g * x * x / (2 * Math.pow(vo * Math.cos(angle), 2)));
+        }
+        // Clear and Reset
+        function clear() {
+            console.log(5);
+            reset.disabled = true;
+            launch.disabled = false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stop();
+            vo = undefined;
+            angle = undefined;
+            velocity.value = '';
+            theta.value = '';
+            projectile("red", 20, 480, 10);
+        }
+        // start rendering
+        function start(loop) {
+            render = window.requestAnimationFrame(loop);
+        }
+        // Stop rendering
+        function stop() {
+            render = undefined;
+            requested = false;
+        }
+        //draw line
+        function drawLine(stroke, color, isdashed, start, end) {
+            ctx.lineWidth = stroke;
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            if (isdashed) ctx.setLineDash(10, 5, 3, 5);
+            else ctx.setLineDash([]);
+            ctx.moveTo(start[0], start[1]);
+            ctx.lineTo(end[0], end[1]);
+            ctx.stroke();
+        }
+        // draw Rectangle
+        function drawRect(color, x, y, width, height) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.rect(x, y, width, height);
+            ctx.fill();
+        }
+        // handling text in the right side
+        function drawText(size, color, string, x, y) {
+            ctx.font = `${size}px Arial `;
+            ctx.fillStyle = color;
+            ctx.fillText(string, x, y);
+        }
+        // Draw Projectile
+        function projectile(color, x, y, r) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Drawing curve 
+        function drawCurvePath(stroke, color, dashing, start, end, curve) {
+            ctx.lineWidth = stroke;
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.setLineDash(dashing);
+            ctx.moveTo(start[0], start[1]);
+            ctx.quadraticCurveTo(
+                curve[0], curve[1],
+                end[0], end[1]
+            );
+            ctx.stroke();
+        }
+    </script>
+</body>
+
+</html>
